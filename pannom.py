@@ -68,18 +68,21 @@ class UtilityCurve():
         self.weight = weight
         return self
 
-    def __call__(self, x):
+    def __call__(self, x, normalized=False):
         """
         Returns value of UtilityCurve at normalized progression, or 
         affected by weight, and bounty, and denormalized.
 
         This is the easiest way to call the UtilityCurve.
         """
+        if not normalized:
+            x = self.normalize(x)
+
         return ( self.weight * self.bounty 
-               * self.denormalize ( CDF( self.x_0, self.x_50, self.x_100
-                                       , self.k_1, self.k_2, self.k_3, self.k_4
-                                       , self.normalize(x)
-               )                   )   )
+               * CDF( self.x_0, self.x_50, self.x_100
+                    , self.k_1, self.k_2, self.k_3, self.k_4
+                    , x
+               )    )
 
                                       
 
@@ -363,7 +366,7 @@ def getMSR_ND_hyperShpere_prime( uc_s
     thetaPairs = reduce(combineAngles, theta)
     points = map(convertHyperSperetoCoordinates, thetaPairs)
     
-    values = zip( [ sum( map(lambda (uc, x): uc(x), zip(uc_s, point)) ) 
+    values = zip( [ sum( map(lambda (uc, x): uc(x, normalized=True), zip(uc_s, point)) ) 
                     for point in points
                     # if all([x <= uc.x_100 for (uc, x) in zip(uc_s, point)])
                 ]
@@ -413,12 +416,14 @@ def getMSR_ND(uc_s, N=13):
     Keep in mind the complexity of this function is along O(N^(|uc_s|+1)).
     """
     radiusMin = 0.0
-    radiusMax = sqrt( sum([uc.denormalize(uc.x_100) ** 2 for uc in uc_s]) )
+    radiusMax = sqrt(len(uc_s))
     radiusStep = (radiusMax - radiusMin) / float(N)
 
     radii = ( radiusStep * ii for ii in range(N+1) )
     
-    points = [ getMSR_ND_hyperShpere(uc_s,r) 
+    points = [ map( lambda (x, uc): uc.denormalize(x)
+                  , zip(getMSR_ND_hyperShpere(uc_s,r), uc_s)
+                  )
                for r in radii
              ]
 
@@ -436,9 +441,13 @@ if __name__=="__main__":
     D = UtilityCurve(1000,8903,10006,100190,10020)
     E = UtilityCurve(1, 6, 15, 20, 30)
 
+    # print [A(x) for x in range(22)]
     uc_s = [A,B,C,D,E]
-    points = getMSR_ND(uc_s)
-    pprint(points)
+    points = getMSR_ND(uc_s, N=30)
+    for p in points:
+        vs = [uc_s[ii](x) for ii,x in enumerate(p)]
+        print ','.join(map(str,vs))
+        # print ','.join(map(str,p))
 
 
 
